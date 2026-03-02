@@ -280,6 +280,35 @@ Use available_groups.json to find the JID for a group. The folder name must be c
   },
 );
 
+server.tool(
+  'sync_memory',
+  "Trigger an immediate sync of agent memories and customisations to the operator's repository. Use when the user asks to sync, backup memories, or push changes.",
+  {
+    chat_jid: z.string().describe('Chat JID to send the result to'),
+  },
+  async (args) => {
+    if (!isMain) {
+      return {
+        content: [{ type: 'text' as const, text: 'Only the main group can trigger a memory sync.' }],
+        isError: true,
+      };
+    }
+
+    const data = {
+      type: 'sync_memory',
+      chatJid: args.chat_jid,
+      groupFolder,
+      timestamp: new Date().toISOString(),
+    };
+
+    writeIpcFile(TASKS_DIR, data);
+
+    return {
+      content: [{ type: 'text' as const, text: "Memory sync queued — I'll send you the result shortly." }],
+    };
+  },
+);
+
 // Start the stdio transport
 const transport = new StdioServerTransport();
 await server.connect(transport);
