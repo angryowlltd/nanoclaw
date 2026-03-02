@@ -383,6 +383,31 @@ export async function processTaskIpc(
       }
       break;
 
+    case 'sync_memory':
+      if (!isMain) {
+        logger.warn({ sourceGroup }, 'Unauthorized sync_memory attempt blocked');
+        break;
+      }
+      if (data.chatJid) {
+        const chatJid = data.chatJid;
+        (async () => {
+          const { execFile } = await import('child_process');
+          const { promisify } = await import('util');
+          const execFileAsync = promisify(execFile);
+          const scriptPath = path.join(process.cwd(), 'scripts', 'sync-memory.sh');
+          try {
+            const { stdout, stderr } = await execFileAsync(scriptPath, { timeout: 120_000 });
+            const output = (stdout + stderr).trim();
+            await deps.sendMessage(chatJid, `✓ Sync complete\n\n${output || 'No output'}`);
+          } catch (err: any) {
+            const output = ((err.stdout ?? '') + (err.stderr ?? '')).trim();
+            await deps.sendMessage(chatJid, `✗ Sync failed\n\n${output || String(err)}`);
+          }
+        })();
+        logger.info({ sourceGroup, chatJid }, 'Memory sync triggered via IPC');
+      }
+      break;
+
     default:
       logger.warn({ type: data.type }, 'Unknown IPC task type');
   }
